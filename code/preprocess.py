@@ -6,7 +6,6 @@ def preprocessing(comments):
     cache = {}
     stemmer = PorterStemmer()
     for comment in comments:
-        print comment
         comment = comment.lower()
 
         # sanitizing the data.
