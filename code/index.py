@@ -4,6 +4,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.model_selection import GridSearchCV
+from sklearn.feature_selection import SelectKBest, chi2
 from preprocess import preprocessing
 
 train_data = pd.read_csv('../data/train_sentences.csv')
@@ -38,8 +40,14 @@ pipeline = Pipeline([
     ("features", combined_features),
     ("classifier", svm)
 ])
-# TODO - Hyperparameter tuning and Feature Selection
-pipeline.fit(train_comments, y=train_y)
-print len(pipeline.named_steps["features"].get_feature_names())
-print "Linear svm : ", pipeline.score(test_comments, test_y)
+# TODO - Feature Selection
+pg = {'classifier__C': [0.1, 1, 10, 100]}
+grid = GridSearchCV(pipeline, param_grid=pg, cv=4)
+grid.fit(train_comments, train_y)
+#pipeline.fit(train_comments, y=train_y)
+#print len(pipeline.named_steps["features"].get_feature_names())
+print grid.best_params_
+print grid.best_score_
+print "Linear svm - grid: ", grid.score(test_comments, test_y)
+#print "Linear svm - simple pipeline: ", pipeline.score(test_comments, test_y)
 
