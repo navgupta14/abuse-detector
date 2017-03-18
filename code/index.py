@@ -38,7 +38,8 @@ pipeline = Pipeline([
     ("features", combined_features),
     ("classifier", svm)
 ])
-
+# TODO - Hyperparameter tuning and Feature Selection
 pipeline.fit(train_comments, y=train_y)
+print len(pipeline.named_steps["features"].get_feature_names())
 print "Linear svm : ", pipeline.score(test_comments, test_y)
 
