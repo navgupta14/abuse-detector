@@ -1,3 +1,4 @@
+import timing
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
@@ -17,6 +18,8 @@ train_comments = np.array(train_data.Comment)
 train_comments = preprocessing(train_comments)
 test_comments = np.array(test_data.Comment)
 test_comments = preprocessing(test_comments)
+
+chi_k = 3000
 
 # word n grams - count vectors
 word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
@@ -38,11 +41,11 @@ svm = LinearSVC()
 
 pipeline = Pipeline([
     ("features", combined_features),
+    ("select", SelectKBest(score_func=chi2)),
     ("classifier", svm)
 ])
-# TODO - Feature Selection
-pg = {'classifier__C': [0.1, 1, 10, 100]}
-grid = GridSearchCV(pipeline, param_grid=pg, cv=4)
+pg = {'classifier__C': [0.1, 1, 10, 100], 'select__k': [1000, 2000, 3000, 4000]}
+grid = GridSearchCV(pipeline, param_grid=pg, cv=4, n_jobs=2)
 grid.fit(train_comments, train_y)
 #pipeline.fit(train_comments, y=train_y)
 #print len(pipeline.named_steps["features"].get_feature_names())
