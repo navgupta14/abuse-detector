@@ -38,7 +38,9 @@ def preprocessing(comments):
         print new_comment
         new_comments.append(" ".join(new_comment))
         '''
-        # Custom Stemming
+        # TODO
+        # Custom Stemming - not correct
+        # like ass -> as, dies -> dy, died -> di, sting -> st
         comment = re.sub("ies( |$)", "y ", comment)
         comment = re.sub("s( |$)", " ", comment)
         comment = re.sub("ing( |$)", " ", comment)
