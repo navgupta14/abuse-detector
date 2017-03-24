@@ -8,6 +8,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
 from preprocess import preprocessing
+from custom_features import BadWordCounter
 
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
@@ -19,21 +20,22 @@ train_comments = preprocessing(train_comments)
 test_comments = np.array(test_data.Comment)
 test_comments = preprocessing(test_comments)
 
-chi_k = 3000
-
 # word n grams - count vectors
-word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
+#word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
 # char n grams - count vectors
-char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
+#char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
 # word n grams - TfIdf
 word_tfidf = TfidfVectorizer(ngram_range=(1, 3), analyzer='word', sublinear_tf=True)
 # char n grams - TfIdf
 char_tfidf = TfidfVectorizer(ngram_range=(3, 5), analyzer='char_wb', sublinear_tf=True)
+badwords = BadWordCounter()
+
 combined_features = FeatureUnion([
     #('word_cv', word_cv),
     #('char_cv', char_cv),
-    ('word_tfidf', word_tfidf),
-    ('char_tfidf', char_tfidf)
+    #('word_tfidf', word_tfidf),
+    ('char_tfidf', char_tfidf),
+    ('badwords', badwords)
 ])
 
 #fitting a svm

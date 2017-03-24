@@ -25,19 +25,7 @@ def preprocessing(comments):
         comment = comment.replace("won't", "will not").replace("can't", "can not").replace("don't", "do not").\
             replace("i'm", "i am").replace("im", "i am").replace("ain't", "is not").replace("ll", "will").\
             replace("'t", " not").replace("'ve", " have").replace("'s", " is").replace("'re", " are").replace("'d", " would")
-        '''
-        # stemming
-        new_comment = []
-        for word in comment.split(" "):
-            if word not in cache:
-                if word == "aed":
-                    cache[word] = word
-                else:
-                    cache[word] = stemmer.stem(word)
-            new_comment.append(cache[word])
-        print new_comment
-        new_comments.append(" ".join(new_comment))
-        '''
+
         # TODO
         # Custom Stemming - not correct
         # like ass -> as, dies -> dy, died -> di, sting -> st
