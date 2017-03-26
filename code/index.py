@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
 from preprocess import preprocessing
-from custom_features import BadWordCounter
+from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming
 
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
@@ -16,26 +16,35 @@ test_data = pd.read_csv('../data/test_with_solutions.csv')
 train_y = np.array(train_data.Insult)
 test_y = np.array(test_data.Insult)
 train_comments = np.array(train_data.Comment)
-train_comments = preprocessing(train_comments)
+#train_comments = preprocessing(train_comments)
 test_comments = np.array(test_data.Comment)
-test_comments = preprocessing(test_comments)
+#test_comments = preprocessing(test_comments)
 
 # word n grams - count vectors
-#word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
+word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
 # char n grams - count vectors
-#char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
+char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
 # word n grams - TfIdf
 word_tfidf = TfidfVectorizer(ngram_range=(1, 3), analyzer='word', sublinear_tf=True)
 # char n grams - TfIdf
 char_tfidf = TfidfVectorizer(ngram_range=(3, 5), analyzer='char_wb', sublinear_tf=True)
+preprocessing = Preprocessing()
+preprocessing_without_stemming = Preprocessing_without_stemming()
 badwords = BadWordCounter()
 
 combined_features = FeatureUnion([
-    #('word_cv', word_cv),
-    #('char_cv', char_cv),
-    #('word_tfidf', word_tfidf),
-    ('char_tfidf', char_tfidf),
-    ('badwords', badwords)
+    ('word_tfidf', Pipeline([
+        ('normalize', preprocessing),
+        ('word', word_tfidf)
+    ])),
+    ('char_tfidf', Pipeline([
+        ('normalize', preprocessing),
+        ('char', char_tfidf)
+    ])),
+    ('badwords', Pipeline([
+        ('normalize', preprocessing_without_stemming),
+        ('badwords', badwords)
+    ]))
 ])
 
 #fitting a svm
@@ -46,13 +55,10 @@ pipeline = Pipeline([
     ("select", SelectKBest(score_func=chi2)),
     ("classifier", svm)
 ])
-pg = {'classifier__C': [0.1, 1, 10, 100], 'select__k': [1000, 2000, 3000, 4000]}
-grid = GridSearchCV(pipeline, param_grid=pg, cv=4, n_jobs=2)
+pg = {'classifier__C': [0.001, 0.001, 0.1, 1, 10], 'select__k': [1000, 2000, 3000, 4000]}
+grid = GridSearchCV(pipeline, param_grid=pg, cv=2, n_jobs=2)
 grid.fit(train_comments, train_y)
-#pipeline.fit(train_comments, y=train_y)
-#print len(pipeline.named_steps["features"].get_feature_names())
 print grid.best_params_
 print grid.best_score_
 print "Linear svm - grid: ", grid.score(test_comments, test_y)
-#print "Linear svm - simple pipeline: ", pipeline.score(test_comments, test_y)
 
