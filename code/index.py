@@ -9,6 +9,9 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
 from preprocess import preprocessing
 from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
@@ -49,13 +52,22 @@ combined_features = FeatureUnion([
 
 #fitting a svm
 svm = LinearSVC()
+lr = LogisticRegression(random_state=1)
+rfc = RandomForestClassifier(random_state=1)
+gnb = GaussianNB()
+
+eclf = VotingClassifier(estimators=[
+    ('svm', svm), ('lr', lr), ('rfc', rfc)
+], voting='hard')
 
 pipeline = Pipeline([
     ("features", combined_features),
     ("select", SelectKBest(score_func=chi2)),
-    ("classifier", svm)
+    ("classifier", eclf)
 ])
-pg = {'classifier__C': [0.001, 0.001, 0.1, 1, 10], 'select__k': [1000, 2000, 3000, 4000]}
+print eclf.get_params().keys()
+pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0], 'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
+#pg = {}
 grid = GridSearchCV(pipeline, param_grid=pg, cv=2, n_jobs=2)
 grid.fit(train_comments, train_y)
 print grid.best_params_
