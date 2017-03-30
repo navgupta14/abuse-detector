@@ -7,8 +7,7 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
-from preprocess import preprocessing
-from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming
+from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -34,8 +33,10 @@ char_tfidf = TfidfVectorizer(ngram_range=(3, 5), analyzer='char_wb', sublinear_t
 preprocessing = Preprocessing()
 preprocessing_without_stemming = Preprocessing_without_stemming()
 badwords = BadWordCounter()
+n_caps = UpperCaseLetters()
 
 combined_features = FeatureUnion([
+    ('n_caps', n_caps),
     ('word_tfidf', Pipeline([
         ('normalize', preprocessing),
         ('word', word_tfidf)
@@ -47,7 +48,7 @@ combined_features = FeatureUnion([
     ('badwords', Pipeline([
         ('normalize', preprocessing_without_stemming),
         ('badwords', badwords)
-    ]))
+    ])),
 ])
 
 #fitting a svm
