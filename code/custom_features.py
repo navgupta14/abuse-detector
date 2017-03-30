@@ -24,7 +24,7 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
         return np.array(['n_words', 'n_chars', 'max_len',
-                         'mean_len', '!', '@', 'spaces', 'bad_ratio', 'n_bad'])
+                         'mean_len', '!', '@', 'spaces', 'bad_ratio', 'n_bad', 'xexp'])
 
     def fit(self, documents, y=None):
         return self
@@ -39,6 +39,8 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
         # number of google badwords:
         n_bad = [np.sum([c.lower().count(w) for w in self.badwords]) for c in documents]
 
+        # number of xexp (**** kind of abuses)
+        n_xexp = [c.count("xexp") for c in documents]
         exclamation = [c.count("!") for c in documents]
         addressing = [c.count("@") for c in documents]
         spaces = [c.count(" ") for c in documents]
@@ -47,7 +49,7 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
 
         timing.log("stop bad words")
         return np.array([n_words, n_chars, max_word_len, mean_word_len, exclamation,
-                         addressing, spaces, bad_ratio, n_bad]).T
+                         addressing, spaces, bad_ratio, n_bad, n_xexp]).T
 
 class Preprocessing(BaseEstimator, TransformerMixin):
 
