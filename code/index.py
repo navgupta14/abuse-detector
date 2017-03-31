@@ -7,7 +7,7 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
-from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters
+from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters, LikelyAbusePhrase
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -34,8 +34,10 @@ preprocessing = Preprocessing()
 preprocessing_without_stemming = Preprocessing_without_stemming()
 badwords = BadWordCounter()
 n_caps = UpperCaseLetters()
+likely_abuse = LikelyAbusePhrase()
 
 combined_features = FeatureUnion([
+    ('likely_abuse', likely_abuse),
     ('n_caps', n_caps),
     ('word_tfidf', Pipeline([
         ('normalize', preprocessing),
@@ -67,8 +69,10 @@ pipeline = Pipeline([
     ("classifier", eclf)
 ])
 print eclf.get_params().keys()
-pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0], 'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
-#pg = {}
+pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
+      'classifier__rfc__n_estimators': [20, 100], 'select__k': [1000, 2000, 3000, 4000]}
+#pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
+      'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
 grid = GridSearchCV(pipeline, param_grid=pg, cv=2, n_jobs=2)
 grid.fit(train_comments, train_y)
 print grid.best_params_

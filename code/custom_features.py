@@ -29,6 +29,23 @@ class UpperCaseLetters(BaseEstimator, TransformerMixin):
             n_caps.append(caps)
         return np.array([n_caps]).T
 
+#This feature handles comments containing "you are a", "you're a", "you sound like"
+class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['likely_abuse'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        likely_abuse = []
+        for doc in documents:
+            labuse = doc.count("you are a")
+            labuse += doc.count("you're a")
+            labuse += doc.count("you sound like a")
+            likely_abuse.append(labuse)
+        return np.array([likely_abuse]).T
+
 class BadWordCounter(BaseEstimator, TransformerMixin):
     def __init__(self):
         with open("../data/google_badwords_list.txt") as f:
