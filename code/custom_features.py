@@ -43,6 +43,11 @@ class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
             labuse = doc.count("you are a")
             labuse += doc.count("you're a")
             labuse += doc.count("you sound like a")
+            labuse += doc.count("u r a")
+            labuse += doc.count("ur a")
+            labuse += doc.count("u'r a")
+            labuse += doc.count("u sound like a")
+            labuse += doc.count("u sound lik a")
             likely_abuse.append(labuse)
         return np.array([likely_abuse]).T
 
