@@ -1,7 +1,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 import re
-import timing
 
 '''
 class SampleExtractor(BaseEstimator, TransformerMixin):
@@ -40,14 +39,24 @@ class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
     def transform(self, documents):
         likely_abuse = []
         for doc in documents:
-            labuse = doc.count("you are a")
-            labuse += doc.count("you're a")
+            doc = doc.lower()
+            labuse = doc.count("you are a ")
+            labuse += doc.count("you're a ")
+            labuse += doc.count("your a ")
             labuse += doc.count("you sound like a")
-            labuse += doc.count("u r a")
-            labuse += doc.count("ur a")
-            labuse += doc.count("u'r a")
-            labuse += doc.count("u sound like a")
-            labuse += doc.count("u sound lik a")
+            labuse += doc.count("u r a ")
+            labuse += doc.count("u are a ")
+            labuse += doc.count("ur a ")
+            labuse += doc.count("u'r a ")
+            labuse += doc.count("u sound like a ")
+            labuse += doc.count("u sound lik a ")
+            labuse += doc.count("you are such a")
+            labuse += doc.count("you're such a")
+            labuse += doc.count("your such a")
+            labuse += doc.count("u r such a")
+            labuse += doc.count("u are such a")
+            labuse += doc.count("ur such a")
+            labuse += doc.count("u'r such a")
             likely_abuse.append(labuse)
         return np.array([likely_abuse]).T
 

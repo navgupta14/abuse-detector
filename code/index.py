@@ -1,4 +1,3 @@
-import timing
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
@@ -11,7 +10,12 @@ from custom_features import BadWordCounter, Preprocessing, Preprocessing_without
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+import logging
+import time
 
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
+start_time = time.time()
+logging.info(" ----------- Start Detector ------------")
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
 
@@ -68,14 +72,20 @@ pipeline = Pipeline([
     ("select", SelectKBest(score_func=chi2)),
     ("classifier", eclf)
 ])
-print eclf.get_params().keys()
-pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
-      'classifier__rfc__n_estimators': [20, 100], 'select__k': [1000, 2000, 3000, 4000]}
-#pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
-#      'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
+
+#pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
+#      'classifier__rfc__n_estimators': [20, 100], 'select__k': [1000, 2000, 3000, 4000]}
+pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
+      'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
 grid = GridSearchCV(pipeline, param_grid=pg, cv=2, n_jobs=2)
 grid.fit(train_comments, train_y)
 print grid.best_params_
 print grid.best_score_
 print "Linear svm - grid: ", grid.score(test_comments, test_y)
+logging.info(" ----------- End Detector ------------")
+total_time = time.time() - start_time
+m, s = divmod(total_time, 60)
+h, m = divmod(m, 60)
+print "Program run time: %d:%02d:%02d" % (h, m, s)
+
 
