@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
 from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters, LikelyAbusePhrase
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 import logging
@@ -62,9 +62,10 @@ svm = LinearSVC()
 lr = LogisticRegression(random_state=1)
 rfc = RandomForestClassifier(random_state=1)
 gnb = GaussianNB()
+sgd = SGDClassifier(n_iter=15000)
 
 eclf = VotingClassifier(estimators=[
-    ('svm', svm), ('lr', lr), ('rfc', rfc)
+    ('svm', svm), ('lr', lr), ('rfc', rfc), ('sgd', sgd)
 ], voting='hard')
 
 pipeline = Pipeline([
@@ -73,11 +74,14 @@ pipeline = Pipeline([
     ("classifier", eclf)
 ])
 
-#pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
-#      'classifier__rfc__n_estimators': [20, 100], 'select__k': [1000, 2000, 3000, 4000]}
-pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
-      'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
-grid = GridSearchCV(pipeline, param_grid=pg, cv=2, n_jobs=2)
+#print sgd.get_params().keys()
+pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
+      'classifier__rfc__n_estimators': [20, 100], 'classifier__sgd__alpha': [0.001, 0.002],\
+       'select__k': [1000, 2000, 3000, 4000]}
+#pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
+#      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
+#      'select__k': [1000, 2000, 3000, 4000]}
+grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
 grid.fit(train_comments, train_y)
 print grid.best_params_
 print grid.best_score_
