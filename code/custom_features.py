@@ -1,7 +1,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 import re
-import timing
 
 '''
 class SampleExtractor(BaseEstimator, TransformerMixin):
@@ -15,6 +14,51 @@ class SampleExtractor(BaseEstimator, TransformerMixin):
     def transform(self, x, y=None):
         return do_something() # actual feature extraction happens here
 '''
+class UpperCaseLetters(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['n_caps'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        n_caps = []
+        for doc in documents:
+            caps = sum(1 for c in doc if c.isupper())
+            n_caps.append(caps)
+        return np.array([n_caps]).T
+
+#This feature handles comments containing "you are a", "you're a", "you sound like"
+class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['likely_abuse'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        likely_abuse = []
+        for doc in documents:
+            doc = doc.lower()
+            labuse = doc.count("you are a ")
+            labuse += doc.count("you're a ")
+            labuse += doc.count("your a ")
+            labuse += doc.count("you sound like a")
+            labuse += doc.count("u r a ")
+            labuse += doc.count("u are a ")
+            labuse += doc.count("ur a ")
+            labuse += doc.count("u'r a ")
+            labuse += doc.count("u sound like a ")
+            labuse += doc.count("u sound lik a ")
+            labuse += doc.count("you are such a")
+            labuse += doc.count("you're such a")
+            labuse += doc.count("your such a")
+            labuse += doc.count("u r such a")
+            labuse += doc.count("u are such a")
+            labuse += doc.count("ur such a")
+            labuse += doc.count("u'r such a")
+            likely_abuse.append(labuse)
+        return np.array([likely_abuse]).T
 
 class BadWordCounter(BaseEstimator, TransformerMixin):
     def __init__(self):
@@ -24,13 +68,12 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
         return np.array(['n_words', 'n_chars', 'max_len',
-                         'mean_len', '!', '@', 'spaces', 'bad_ratio', 'n_bad'])
+                         'mean_len', '!', '@', 'spaces', 'bad_ratio', 'n_bad', 'xexp'])
 
     def fit(self, documents, y=None):
         return self
 
     def transform(self, documents):
-        timing.log("start bad words")
         n_words = [len(c.split()) for c in documents]
         n_chars = [len(c) for c in documents]
         max_word_len = [np.max([len(w) for w in c.split()]) for c in documents]
@@ -39,15 +82,16 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
         # number of google badwords:
         n_bad = [np.sum([c.lower().count(w) for w in self.badwords]) for c in documents]
 
+        # number of xexp (**** kind of abuses)
+        n_xexp = [c.count("xexp") for c in documents]
         exclamation = [c.count("!") for c in documents]
         addressing = [c.count("@") for c in documents]
         spaces = [c.count(" ") for c in documents]
 
         bad_ratio = np.array(n_bad) / np.array(n_words, dtype=np.float)
 
-        timing.log("stop bad words")
         return np.array([n_words, n_chars, max_word_len, mean_word_len, exclamation,
-                         addressing, spaces, bad_ratio, n_bad]).T
+                         addressing, spaces, bad_ratio, n_bad, n_xexp]).T
 
 class Preprocessing(BaseEstimator, TransformerMixin):
 
@@ -60,7 +104,6 @@ class Preprocessing(BaseEstimator, TransformerMixin):
     def transform(self, comments):
         new_comments = []
         cache = {}
-        timing.log("start transforming")
         for comment in comments:
             comment = comment.lower()
 
@@ -93,13 +136,12 @@ class Preprocessing(BaseEstimator, TransformerMixin):
 
             # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.
             new_comments.append(comment)
-        timing.log("end transforming")
         return new_comments
 
 class Preprocessing_without_stemming(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
-        return np.array(['preprocessed'])
+        return np.array(['preprocessed_without_stemming'])
 
     def fit(self, documents, y=None):
         return self
@@ -107,7 +149,6 @@ class Preprocessing_without_stemming(BaseEstimator, TransformerMixin):
     def transform(self, comments):
         new_comments = []
         cache = {}
-        timing.log("start transforming")
         for comment in comments:
             comment = comment.lower()
 
@@ -135,5 +176,4 @@ class Preprocessing_without_stemming(BaseEstimator, TransformerMixin):
 
             # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.
             new_comments.append(comment)
-        timing.log("end transforming")
         return new_comments

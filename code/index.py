@@ -1,4 +1,3 @@
-import timing
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
@@ -7,12 +6,17 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
-from preprocess import preprocessing
-from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming
-from sklearn.linear_model import LogisticRegression
+from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters, LikelyAbusePhrase
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.metrics import auc, roc_auc_score, roc_curve, precision_recall_curve, precision_recall_fscore_support
+import logging
+import time
 
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
+start_time = time.time()
+logging.info(" ----------- Start Detector ------------")
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
 
@@ -34,8 +38,12 @@ char_tfidf = TfidfVectorizer(ngram_range=(3, 5), analyzer='char_wb', sublinear_t
 preprocessing = Preprocessing()
 preprocessing_without_stemming = Preprocessing_without_stemming()
 badwords = BadWordCounter()
+n_caps = UpperCaseLetters()
+likely_abuse = LikelyAbusePhrase()
 
 combined_features = FeatureUnion([
+    ('likely_abuse', likely_abuse),
+    ('n_caps', n_caps),
     ('word_tfidf', Pipeline([
         ('normalize', preprocessing),
         ('word', word_tfidf)
@@ -47,7 +55,7 @@ combined_features = FeatureUnion([
     ('badwords', Pipeline([
         ('normalize', preprocessing_without_stemming),
         ('badwords', badwords)
-    ]))
+    ])),
 ])
 
 #fitting a svm
@@ -55,9 +63,10 @@ svm = LinearSVC()
 lr = LogisticRegression(random_state=1)
 rfc = RandomForestClassifier(random_state=1)
 gnb = GaussianNB()
+sgd = SGDClassifier(n_iter=15000)
 
 eclf = VotingClassifier(estimators=[
-    ('svm', svm), ('lr', lr), ('rfc', rfc)
+    ('svm', svm), ('lr', lr), ('sgd', sgd)
 ], voting='hard')
 
 pipeline = Pipeline([
@@ -65,12 +74,33 @@ pipeline = Pipeline([
     ("select", SelectKBest(score_func=chi2)),
     ("classifier", eclf)
 ])
-print eclf.get_params().keys()
-pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0], 'classifier__rfc__n_estimators': [20, 30], 'select__k': [1000, 2000, 3000, 4000]}
-#pg = {}
-grid = GridSearchCV(pipeline, param_grid=pg, cv=2, n_jobs=2)
+#print sgd.get_params().keys()
+pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
+        'classifier__sgd__alpha': [0.001, 0.002],\
+       'select__k': [1000, 2000, 3000, 4000]}
+#pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
+#      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
+#      'select__k': [1000, 2000, 3000, 4000]}
+grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
 grid.fit(train_comments, train_y)
 print grid.best_params_
 print grid.best_score_
 print "Linear svm - grid: ", grid.score(test_comments, test_y)
+predictions = grid.predict(test_comments)
+false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, predictions)
+print "Test data auc(roc curve) : ", auc(false_positive_rate, true_positive_rate)
+print "Test data roc auc : ", roc_auc_score(test_y, predictions)
+precision, recall, thresholds = precision_recall_curve(test_y, predictions)
+print "Test data auc(PR curve) : ", auc(precision, recall)
+print "(PRF)macro : ", precision_recall_fscore_support(test_y, predictions, average='macro')
+print "(PRF)micro : ", precision_recall_fscore_support(test_y, predictions, average='micro')
+print "(PRF)weighted : ", precision_recall_fscore_support(test_y, predictions, average='weighted')
+print "(PRF) : ", precision_recall_fscore_support(test_y, predictions)
+
+logging.info(" ----------- End Detector ------------")
+total_time = time.time() - start_time
+m, s = divmod(total_time, 60)
+h, m = divmod(m, 60)
+print "Program run time: %d:%02d:%02d" % (h, m, s)
+
 
