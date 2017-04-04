@@ -10,6 +10,7 @@ from custom_features import BadWordCounter, Preprocessing, Preprocessing_without
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.metrics import auc, roc_auc_score, roc_curve, precision_recall_curve, precision_recall_fscore_support
 import logging
 import time
 
@@ -65,7 +66,7 @@ gnb = GaussianNB()
 sgd = SGDClassifier(n_iter=15000)
 
 eclf = VotingClassifier(estimators=[
-    ('svm', svm), ('lr', lr), ('rfc', rfc), ('sgd', sgd)
+    ('svm', svm), ('lr', lr), ('sgd', sgd)
 ], voting='hard')
 
 pipeline = Pipeline([
@@ -76,7 +77,7 @@ pipeline = Pipeline([
 
 #print sgd.get_params().keys()
 pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
-      'classifier__rfc__n_estimators': [20, 100], 'classifier__sgd__alpha': [0.001, 0.002],\
+        'classifier__sgd__alpha': [0.001, 0.002],\
        'select__k': [1000, 2000, 3000, 4000]}
 #pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
 #      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
@@ -86,6 +87,17 @@ grid.fit(train_comments, train_y)
 print grid.best_params_
 print grid.best_score_
 print "Linear svm - grid: ", grid.score(test_comments, test_y)
+predictions = grid.predict(test_comments)
+false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, predictions)
+print "Test data auc(roc curve) : ", auc(false_positive_rate, true_positive_rate)
+print "Test data roc auc : ", roc_auc_score(test_y, predictions)
+precision, recall, thresholds = precision_recall_curve(test_y, predictions)
+print "Test data auc(PR curve) : ", auc(precision, recall)
+print "(PRF)macro : ", precision_recall_fscore_support(test_y, predictions, average='macro')
+print "(PRF)micro : ", precision_recall_fscore_support(test_y, predictions, average='micro')
+print "(PRF)weighted : ", precision_recall_fscore_support(test_y, predictions, average='weighted')
+print "(PRF) : ", precision_recall_fscore_support(test_y, predictions)
+
 logging.info(" ----------- End Detector ------------")
 total_time = time.time() - start_time
 m, s = divmod(total_time, 60)
