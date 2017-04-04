@@ -77,7 +77,7 @@ pipeline = Pipeline([
 
 #print sgd.get_params().keys()
 pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
-      'classifier__rfc__n_estimators': [20, 100], 'classifier__sgd__alpha': [0.001, 0.002],\
+        'classifier__sgd__alpha': [0.001, 0.002],\
        'select__k': [1000, 2000, 3000, 4000]}
 #pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
 #      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
