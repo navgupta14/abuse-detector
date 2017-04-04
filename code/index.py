@@ -11,6 +11,7 @@ from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.metrics import auc, roc_auc_score, roc_curve, precision_recall_curve, precision_recall_fscore_support
+from sklearn import svm
 import logging
 import time
 
@@ -59,43 +60,47 @@ combined_features = FeatureUnion([
 ])
 
 #fitting a svm
-svm = LinearSVC()
-lr = LogisticRegression(random_state=1)
+svm = svm.SVC(C=0.3,kernel='linear',probability=True, verbose=True)
+lr = LogisticRegression(random_state=1, verbose=True)
 rfc = RandomForestClassifier(random_state=1)
 gnb = GaussianNB()
 sgd = SGDClassifier(n_iter=15000)
 
 eclf = VotingClassifier(estimators=[
-    ('svm', svm), ('lr', lr), ('sgd', sgd)
-], voting='hard')
+    ('svm', svm), ('lr', lr)
+], voting='soft', weights=[0.6, 0.4])
 
 pipeline = Pipeline([
     ("features", combined_features),
-    ("select", SelectKBest(score_func=chi2)),
+    ("select", SelectKBest(score_func=chi2, k=16000)),
     ("classifier", eclf)
 ])
 #print sgd.get_params().keys()
-pg = {'classifier__svm__C': [0.001, 0.01, 0.1, 1, 10], 'classifier__lr__C': [1.0, 100.0],\
-        'classifier__sgd__alpha': [0.001, 0.002],\
-       'select__k': [1000, 2000, 3000, 4000]}
+pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
+       'select__k': [10000, 12000, 14000, 16000]}
 #pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
 #      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
 #      'select__k': [1000, 2000, 3000, 4000]}
-grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
+#grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
+grid = pipeline
 grid.fit(train_comments, train_y)
-print grid.best_params_
-print grid.best_score_
+#print grid.best_params_
+#print grid.best_score_
 print "Linear svm - grid: ", grid.score(test_comments, test_y)
-predictions = grid.predict(test_comments)
+predictions = grid.predict_proba(test_comments)
+predict_ans = grid.predict(test_comments)
+grid.classes_
+print grid.classes_
+predictions = predictions[:, 1]
 false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, predictions)
 print "Test data auc(roc curve) : ", auc(false_positive_rate, true_positive_rate)
 print "Test data roc auc : ", roc_auc_score(test_y, predictions)
 precision, recall, thresholds = precision_recall_curve(test_y, predictions)
-print "Test data auc(PR curve) : ", auc(precision, recall)
-print "(PRF)macro : ", precision_recall_fscore_support(test_y, predictions, average='macro')
-print "(PRF)micro : ", precision_recall_fscore_support(test_y, predictions, average='micro')
-print "(PRF)weighted : ", precision_recall_fscore_support(test_y, predictions, average='weighted')
-print "(PRF) : ", precision_recall_fscore_support(test_y, predictions)
+print "Test data auc(PR curve) : ", auc(recall, precision)
+print "(PRF)macro : ", precision_recall_fscore_support(test_y, predict_ans, average='macro')
+print "(PRF)micro : ", precision_recall_fscore_support(test_y, predict_ans, average='micro')
+print "(PRF)weighted : ", precision_recall_fscore_support(test_y, predict_ans, average='weighted')
+print "(PRF) : ", precision_recall_fscore_support(test_y, predict_ans)
 
 logging.info(" ----------- End Detector ------------")
 total_time = time.time() - start_time
