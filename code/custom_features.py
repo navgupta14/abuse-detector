@@ -16,17 +16,17 @@ class SampleExtractor(BaseEstimator, TransformerMixin):
 '''
 class UpperCaseLetters(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
-        return np.array(['n_caps'])
+        return np.array(['n_caps'], ['n_caps_ratio'])
 
     def fit(self, documents, y=None):
         return self
 
     def transform(self, documents):
         n_caps = []
-        for doc in documents:
-            caps = sum(1 for c in doc if c.isupper())
-            n_caps.append(caps)
-        return np.array([n_caps]).T
+        n_words = [len(c.split()) for c in documents]
+        n_caps = [np.sum([w.isupper() for w in comment.split()]) for comment in documents]
+        n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
+        return np.array([n_caps, n_caps_ratio]).T
 
 #This feature handles comments containing "you are a", "you're a", "you sound like"
 class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
