@@ -1,6 +1,8 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
 import re
+import math
+import pandas as pd
 
 '''
 class SampleExtractor(BaseEstimator, TransformerMixin):
@@ -14,6 +16,84 @@ class SampleExtractor(BaseEstimator, TransformerMixin):
     def transform(self, x, y=None):
         return do_something() # actual feature extraction happens here
 '''
+class DayAndTime(BaseEstimator, TransformerMixin):
+
+    def get_feature_names(self):
+        return np.array(['month_of_year'], ['day_of_week'], ['hour_of_day'], ['weekday'], ['weeknight'], ['weekend_day'], ['weekend_night'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, docs):
+        documents = docs[1]
+        def weekDay_func(year, month, day):
+            offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+            week = ['Sunday',
+                    'Monday',
+                    'Tuesday',
+                    'Wednesday',
+                    'Thursday',
+                    'Friday',
+                    'Saturday']
+            afterFeb = 1
+            if month > 2: afterFeb = 0
+            aux = year - 1700 - afterFeb
+            # dayOfWeek for 1700/1/1 = 5, Friday
+            dayOfWeek = 5
+            # partial sum of days betweem current date and 1700/1/1
+            dayOfWeek += (aux + afterFeb) * 365
+            # leap year correction
+            dayOfWeek += aux / 4 - aux / 100 + (aux + 100) / 400
+            # sum monthly and day offsets
+            dayOfWeek += offset[month - 1] + (day - 1)
+            dayOfWeek %= 7
+            return dayOfWeek + 1, week[dayOfWeek]
+
+        month_of_year = []
+        day_of_week = []
+        hour_of_day = []
+        weekday = []
+        weeknight = []
+        weekend_day = []
+        weekend_night = []
+        for date_time in documents:
+            if pd.isnull(date_time):
+                month_of_year.append(0)
+                day_of_week.append(0)
+                hour_of_day.append(0)
+                weekday.append(0)
+                weeknight.append(0)
+                weekend_day.append(0)
+                weekend_night.append(0)
+            else:
+                year = int(date_time[:4])
+                month = int(date_time[4:6])
+                given_date = int(date_time[6:8])
+                hour = int(date_time[8:10])
+                (day_int, day_str) = weekDay_func(year, month, given_date)
+                month_of_year.append(month)
+                day_of_week.append(day_int)
+                hour_of_day.append(hour)
+                if day_int == 1 or day_int == 7:
+                    weeknight.append(0)
+                    weekday.append(0)
+                    if hour > 2 and hour < 18:
+                        weekend_day.append(1)
+                        weekend_night.append(0)
+                    else:
+                        weekend_night.append(1)
+                        weekend_day.append(0)
+                else:
+                    weekend_night.append(0)
+                    weekend_day.append(0)
+                    if hour > 2 and hour < 18:
+                        weekday.append(1)
+                        weeknight.append(0)
+                    else:
+                        weeknight.append(1)
+                        weekday.append(0)
+        return np.array([weekday, weeknight, weekend_day, weekend_night]).T
+
 class UpperCaseLetters(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
         return np.array(['n_caps'], ['n_caps_ratio'])
@@ -22,7 +102,7 @@ class UpperCaseLetters(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        n_caps = []
+        documents = documents[0]
         n_words = [len(c.split()) for c in documents]
         n_caps = [np.sum([w.isupper() for w in comment.split()]) for comment in documents]
         n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
@@ -37,6 +117,7 @@ class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
+        documents = documents[0]
         likely_abuse = []
         for doc in documents:
             doc = doc.lower()
@@ -95,7 +176,8 @@ class Preprocessing(BaseEstimator, TransformerMixin):
     def fit(self, documents, y=None):
         return self
 
-    def transform(self, comments):
+    def transform(self, comm):
+        comments = comm[0]
         new_comments = []
         cache = {}
         for comment in comments:
@@ -141,6 +223,7 @@ class Preprocessing_without_stemming(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, comments):
+        comments = comments[0]
         new_comments = []
         cache = {}
         for comment in comments:

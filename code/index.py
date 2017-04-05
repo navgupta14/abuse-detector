@@ -6,7 +6,7 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
-from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters, LikelyAbusePhrase
+from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters, LikelyAbusePhrase, DayAndTime
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -22,10 +22,12 @@ train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
 
 train_y = np.array(train_data.Insult)
+train_time = np.array(train_data.Date)
 test_y = np.array(test_data.Insult)
 train_comments = np.array(train_data.Comment)
 #train_comments = preprocessing(train_comments)
 test_comments = np.array(test_data.Comment)
+test_time = np.array(test_data.Date)
 #test_comments = preprocessing(test_comments)
 
 # word n grams - count vectors
@@ -33,7 +35,7 @@ word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
 # char n grams - count vectors
 char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
 # word n grams - TfIdf
-word_tfidf = TfidfVectorizer(ngram_range=(1, 3), analyzer='word', sublinear_tf=True)
+word_tfidf = TfidfVectorizer(ngram_range=(1, 3), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
 # char n grams - TfIdf
 char_tfidf = TfidfVectorizer(ngram_range=(3, 5), analyzer='char_wb', sublinear_tf=True)
 preprocessing = Preprocessing()
@@ -41,8 +43,10 @@ preprocessing_without_stemming = Preprocessing_without_stemming()
 badwords = BadWordCounter()
 n_caps = UpperCaseLetters()
 likely_abuse = LikelyAbusePhrase()
+day_and_time = DayAndTime()
 
 combined_features = FeatureUnion([
+    ('time', day_and_time),
     ('likely_abuse', likely_abuse),
     ('n_caps', n_caps),
     ('word_tfidf', Pipeline([
@@ -83,12 +87,12 @@ pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
 #      'select__k': [1000, 2000, 3000, 4000]}
 #grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
 grid = pipeline
-grid.fit(train_comments, train_y)
+grid.fit((train_comments, train_time), train_y)
 #print grid.best_params_
 #print grid.best_score_
-print "Linear svm - grid: ", grid.score(test_comments, test_y)
-predictions = grid.predict_proba(test_comments)
-predict_ans = grid.predict(test_comments)
+print "Linear svm - grid: ", grid.score((test_comments, test_time), test_y)
+predictions = grid.predict_proba((test_comments, test_time))
+predict_ans = grid.predict((test_comments, test_time))
 grid.classes_
 print grid.classes_
 predictions = predictions[:, 1]
