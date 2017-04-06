@@ -83,7 +83,7 @@ eclf = VotingClassifier(estimators=[
 
 pipeline = Pipeline([
     ("features", combined_features),
-    ("select", SelectKBest(score_func=chi2, k=16000)),
+    ("select", SelectKBest(score_func=chi2, k=20000)),
     ("classifier", eclf)
 ])
 #print sgd.get_params().keys()
