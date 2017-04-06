@@ -3,6 +3,7 @@ import numpy as np
 import re
 import math
 import pandas as pd
+import string
 
 '''
 class SampleExtractor(BaseEstimator, TransformerMixin):
@@ -93,6 +94,49 @@ class DayAndTime(BaseEstimator, TransformerMixin):
                         weeknight.append(1)
                         weekday.append(0)
         return np.array([weekday, weeknight, weekend_day, weekend_night]).T
+
+class CommentLength(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['n_comment_len'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        documents = documents[0]
+        n_words = [len(c) for c in documents]
+        return np.array([n_words]).T
+
+class AverageWordLength(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['average_word_len'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        documents = documents[0]
+        avg_word_len = []
+        for doc in documents:
+            words = doc.split()
+            wordlen = 0.0
+            for word in words:
+                wordlen += len(word)
+            avg_word_len.append(wordlen/len(words))
+        return np.array([avg_word_len]).T
+
+class Punctuations(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['punctuations'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        documents = documents[0]
+        count = lambda l1, l2: sum([1 for x in l1 if x in l2])
+        punctuations = [count(c, set(string.punctuation)) for c in documents]
+        return np.array([punctuations]).T
 
 class UpperCaseLetters(BaseEstimator, TransformerMixin):
     def get_feature_names(self):

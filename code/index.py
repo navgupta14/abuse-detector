@@ -4,9 +4,10 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
-from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters, LikelyAbusePhrase, DayAndTime
+from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters,\
+    LikelyAbusePhrase, DayAndTime, CommentLength, AverageWordLength, Punctuations
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -44,8 +45,14 @@ badwords = BadWordCounter()
 n_caps = UpperCaseLetters()
 likely_abuse = LikelyAbusePhrase()
 day_and_time = DayAndTime()
+comment_length = CommentLength()
+avg_word_length = AverageWordLength()
+punctuations = Punctuations()
 
 combined_features = FeatureUnion([
+    #('punctuations', punctuations),
+    #('average_word_length', avg_word_length),
+    #('comment_length', comment_length),
     ('time', day_and_time),
     ('likely_abuse', likely_abuse),
     ('n_caps', n_caps),
@@ -87,6 +94,10 @@ pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
 #      'select__k': [1000, 2000, 3000, 4000]}
 #grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
 grid = pipeline
+#grid = RandomizedSearchCV(pipeline, param_distributions=pg, n_iter=10)
+#abc = np.array([train_comments])
+#xyz = np.array([train_y])
+#grid.fit(abc, xyz)
 grid.fit((train_comments, train_time), train_y)
 #print grid.best_params_
 #print grid.best_score_
