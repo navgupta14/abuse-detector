@@ -4,6 +4,13 @@ import re
 import math
 import pandas as pd
 import string
+custom_seperator = "-csep-"
+
+def get_docs_based_on_index(docs, index):
+    ret_list = []
+    for doc in docs:
+        ret_list.append(doc.split(custom_seperator)[index])
+    return np.array(ret_list)
 
 '''
 class SampleExtractor(BaseEstimator, TransformerMixin):
@@ -26,7 +33,7 @@ class DayAndTime(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, docs):
-        documents = docs[1]
+        documents = get_docs_based_on_index(docs, 1)
         def weekDay_func(year, month, day):
             offset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
             week = ['Sunday',
@@ -58,7 +65,8 @@ class DayAndTime(BaseEstimator, TransformerMixin):
         weekend_day = []
         weekend_night = []
         for date_time in documents:
-            if pd.isnull(date_time):
+            #if pd.isnull(date_time):
+            if date_time == '0':
                 month_of_year.append(0)
                 day_of_week.append(0)
                 hour_of_day.append(0)
@@ -103,7 +111,7 @@ class CommentLength(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        documents = documents[0]
+        documents = get_docs_based_on_index(documents, 0)
         n_words = [len(c) for c in documents]
         return np.array([n_words]).T
 
@@ -115,7 +123,7 @@ class AverageWordLength(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        documents = documents[0]
+        documents = get_docs_based_on_index(documents, 0)
         avg_word_len = []
         for doc in documents:
             words = doc.split()
@@ -133,7 +141,7 @@ class Punctuations(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        documents = documents[0]
+        documents = get_docs_based_on_index(documents, 0)
         count = lambda l1, l2: sum([1 for x in l1 if x in l2])
         punctuations = [count(c, set(string.punctuation)) for c in documents]
         return np.array([punctuations]).T
@@ -146,7 +154,7 @@ class UpperCaseLetters(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        documents = documents[0]
+        documents = get_docs_based_on_index(documents, 0)
         n_words = [len(c.split()) for c in documents]
         n_caps = [np.sum([w.isupper() for w in comment.split()]) for comment in documents]
         n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
@@ -161,7 +169,7 @@ class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        documents = documents[0]
+        documents = get_docs_based_on_index(documents, 0)
         likely_abuse = []
         for doc in documents:
             doc = doc.lower()
@@ -193,6 +201,7 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
+        documents = get_docs_based_on_index(documents, 0)
         n_words = [len(c.split()) for c in documents]
         n_chars = [len(c) for c in documents]
         max_word_len = [np.max([len(w) for w in c.split()]) for c in documents]
@@ -221,7 +230,7 @@ class Preprocessing(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, comm):
-        comments = comm[0]
+        comments = get_docs_based_on_index(comm, 0)
         new_comments = []
         cache = {}
         for comment in comments:
@@ -267,7 +276,7 @@ class Preprocessing_without_stemming(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, comments):
-        comments = comments[0]
+        comments = get_docs_based_on_index(comments, 0)
         new_comments = []
         cache = {}
         for comment in comments:

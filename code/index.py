@@ -21,11 +21,18 @@ start_time = time.time()
 logging.info(" ----------- Start Detector ------------")
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
-
 train_y = np.array(train_data.Insult)
 train_time = np.array(train_data.Date)
 test_y = np.array(test_data.Insult)
 train_comments = np.array(train_data.Comment)
+
+custom_seperator = "-csep-"
+for i in xrange(len(train_comments)):
+    time_append = train_time[i]
+    if pd.isnull(time_append):
+        time_append = '0'
+    train_comments[i] = train_comments[i] + custom_seperator + time_append
+
 #train_comments = preprocessing(train_comments)
 test_comments = np.array(test_data.Comment)
 test_time = np.array(test_data.Date)
@@ -71,8 +78,8 @@ combined_features = FeatureUnion([
 ])
 
 #fitting a svm
-svm = svm.SVC(C=0.3,kernel='linear',probability=True, verbose=True)
-lr = LogisticRegression(random_state=1, verbose=True)
+svm = svm.SVC(kernel='linear', probability=True)
+lr = LogisticRegression(random_state=1)
 rfc = RandomForestClassifier(random_state=1)
 gnb = GaussianNB()
 sgd = SGDClassifier(n_iter=15000)
@@ -86,21 +93,19 @@ pipeline = Pipeline([
     ("select", SelectKBest(score_func=chi2, k=20000)),
     ("classifier", eclf)
 ])
-#print sgd.get_params().keys()
-pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
-       'select__k': [10000, 12000, 14000, 16000]}
+
+pg = {'classifier__svm__C': [0.1, 0.3, 0.4], 'classifier__lr__C': [1.0, 3.0, 4.0],\
+       'select__k': [12000, 14000, 16000, 18000]}
 #pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
 #      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
 #      'select__k': [1000, 2000, 3000, 4000]}
-#grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
-grid = pipeline
+grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4, verbose=5)
+#grid = pipeline
 #grid = RandomizedSearchCV(pipeline, param_distributions=pg, n_iter=10)
-#abc = np.array([train_comments])
-#xyz = np.array([train_y])
-#grid.fit(abc, xyz)
-grid.fit((train_comments, train_time), train_y)
-#print grid.best_params_
-#print grid.best_score_
+
+grid.fit(train_comments, train_y)
+print grid.best_params_
+print grid.best_score_
 print "Linear svm - grid: ", grid.score((test_comments, test_time), test_y)
 predictions = grid.predict_proba((test_comments, test_time))
 predict_ans = grid.predict((test_comments, test_time))
