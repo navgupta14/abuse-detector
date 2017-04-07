@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
 from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters,\
-    LikelyAbusePhrase, DayAndTime, CommentLength, AverageWordLength, Punctuations
+    LikelyAbusePhrase, DayAndTime, CommentLength, AverageWordLength, Punctuations, Misspelling
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -48,11 +48,13 @@ day_and_time = DayAndTime()
 comment_length = CommentLength()
 avg_word_length = AverageWordLength()
 punctuations = Punctuations()
+misspelling = Misspelling()
 
 combined_features = FeatureUnion([
     #('punctuations', punctuations),
     #('average_word_length', avg_word_length),
     #('comment_length', comment_length),
+    ('misspelling', misspelling),
     ('time', day_and_time),
     ('likely_abuse', likely_abuse),
     ('n_caps', n_caps),

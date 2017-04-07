@@ -4,6 +4,8 @@ import re
 import math
 import pandas as pd
 import string
+import enchant
+from nltk.corpus import words as dictwords
 
 '''
 class SampleExtractor(BaseEstimator, TransformerMixin):
@@ -118,11 +120,11 @@ class AverageWordLength(BaseEstimator, TransformerMixin):
         documents = documents[0]
         avg_word_len = []
         for doc in documents:
-            words = doc.split()
+            dwords = doc.split()
             wordlen = 0.0
-            for word in words:
+            for word in dwords:
                 wordlen += len(word)
-            avg_word_len.append(wordlen/len(words))
+            avg_word_len.append(wordlen/len(dwords))
         return np.array([avg_word_len]).T
 
 class Punctuations(BaseEstimator, TransformerMixin):
@@ -137,6 +139,26 @@ class Punctuations(BaseEstimator, TransformerMixin):
         count = lambda l1, l2: sum([1 for x in l1 if x in l2])
         punctuations = [count(c, set(string.punctuation)) for c in documents]
         return np.array([punctuations]).T
+
+class Misspelling(BaseEstimator, TransformerMixin):
+    def get_feature_names(self):
+        return np.array(['misspelling'])
+
+    def fit(self, documents, y=None):
+        return self
+
+    def transform(self, documents):
+        documents = documents[0]
+        #Below is the nltk word list approach. May be slightly faster than PyEnchant
+        #Currently we'll be sticking to PyEnchant
+        # words = set(dictwords.words())
+        #count = lambda l1: sum([1 for x in l1.split() if x in words])
+
+        #PyEnchant Approach:
+        engdict = enchant.Dict("en_US")
+        count = lambda l1: sum([1 for x in l1.split() if engdict.check(x) == True])
+        misspellngs = [count(c) for c in documents]
+        return np.array([misspellngs]).T
 
 class UpperCaseLetters(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
