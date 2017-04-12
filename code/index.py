@@ -32,13 +32,17 @@ test_time = np.array(test_data.Date)
 #test_comments = preprocessing(test_comments)
 
 # word n grams - count vectors
-word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
+#word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
 # char n grams - count vectors
-char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
+#char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
 # word n grams - TfIdf
-word_tfidf = TfidfVectorizer(ngram_range=(1, 3), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
+word_tfidf_1 = TfidfVectorizer(ngram_range=(1, 1), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
+word_tfidf_2 = TfidfVectorizer(ngram_range=(2, 2), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
+word_tfidf_3 = TfidfVectorizer(ngram_range=(3, 3), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
 # char n grams - TfIdf
-char_tfidf = TfidfVectorizer(ngram_range=(3, 5), analyzer='char_wb', sublinear_tf=True)
+char_tfidf_1 = TfidfVectorizer(ngram_range=(3, 3), analyzer='char_wb', sublinear_tf=True, stop_words='english')
+char_tfidf_2 = TfidfVectorizer(ngram_range=(4, 4), analyzer='char_wb', sublinear_tf=True, stop_words='english')
+char_tfidf_3 = TfidfVectorizer(ngram_range=(5, 5), analyzer='char_wb', sublinear_tf=True, stop_words='english')
 preprocessing = Preprocessing()
 preprocessing_without_stemming = Preprocessing_without_stemming()
 badwords = BadWordCounter()
@@ -50,6 +54,7 @@ avg_word_length = AverageWordLength()
 punctuations = Punctuations()
 misspelling = Misspelling()
 
+'''
 combined_features = FeatureUnion([
     #('punctuations', punctuations),
     #('average_word_length', avg_word_length),
@@ -71,6 +76,38 @@ combined_features = FeatureUnion([
         ('badwords', badwords)
     ])),
 ])
+'''
+features_list = [(misspelling, 1), (day_and_time, 4), (likely_abuse, 1), (n_caps, 2), (word_tfidf_1, 2000), (word_tfidf_2, 2000),(word_tfidf_3, 2000),(char_tfidf_1, 2000),\
+                 (char_tfidf_2, 2000), (char_tfidf_3, 2000), (badwords, 10)]
+
+#train_comments = preprocessing.fit_transform(train_comments)
+#test_comments = preprocessing.transform(test_comments)
+training_data_features_list = []
+test_data_features_list = []
+for feature in features_list:
+    feat = feature[0]
+    k_new = feature[1]
+    if k_new > 1000:
+        print "foo"
+        feat.fit(train_comments)
+        train_x = feat.transform(train_comments)
+        test_x = feat.transform(test_comments)
+        select_k = SelectKBest(score_func=chi2, k=k_new)
+        train_xx = select_k.fit_transform(train_x, train_y)
+        test_xx = select_k.transform(test_x)
+    else:
+        print "bar"
+        train_xx = feat.fit_transform((train_comments, train_time))
+        test_xx = feat.transform((test_comments, test_time))
+    training_data_features_list.append(train_xx)
+    test_data_features_list.append(test_xx)
+
+import scipy.sparse as sp
+final_training_data = sp.hstack(training_data_features_list)
+final_test_data = sp.hstack(test_data_features_list)
+
+
+
 
 #fitting a svm
 svm = svm.SVC(C=0.3,kernel='linear',probability=True, verbose=True)
@@ -83,11 +120,13 @@ eclf = VotingClassifier(estimators=[
     ('svm', svm), ('lr', lr)
 ], voting='soft', weights=[0.6, 0.4])
 
+'''
 pipeline = Pipeline([
     ("features", combined_features),
     ("select", SelectKBest(score_func=chi2, k=20000)),
     ("classifier", eclf)
 ])
+'''
 #print sgd.get_params().keys()
 pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
        'select__k': [10000, 12000, 14000, 16000]}
@@ -95,17 +134,18 @@ pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
 #      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
 #      'select__k': [1000, 2000, 3000, 4000]}
 #grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
-grid = pipeline
+grid = eclf
 #grid = RandomizedSearchCV(pipeline, param_distributions=pg, n_iter=10)
 #abc = np.array([train_comments])
 #xyz = np.array([train_y])
 #grid.fit(abc, xyz)
-grid.fit((train_comments, train_time), train_y)
+#grid.fit((train_comments, train_time), train_y)
+grid.fit(final_training_data, train_y)
 #print grid.best_params_
 #print grid.best_score_
-print "Linear svm - grid: ", grid.score((test_comments, test_time), test_y)
-predictions = grid.predict_proba((test_comments, test_time))
-predict_ans = grid.predict((test_comments, test_time))
+print "Linear svm - grid: ", grid.score(final_test_data, test_y)
+predictions = grid.predict_proba(final_test_data)
+predict_ans = grid.predict(final_test_data)
 grid.classes_
 print grid.classes_
 predictions = predictions[:, 1]

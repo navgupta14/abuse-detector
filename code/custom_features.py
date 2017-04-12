@@ -171,7 +171,10 @@ class UpperCaseLetters(BaseEstimator, TransformerMixin):
         documents = documents[0]
         n_words = [len(c.split()) for c in documents]
         n_caps = [np.sum([w.isupper() for w in comment.split()]) for comment in documents]
-        n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
+        try:
+            n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
+        except ValueError:
+            print "Hello"
         return np.array([n_caps, n_caps_ratio]).T
 
 #This feature handles comments containing "you are a", "you're a", "you sound like"
@@ -215,7 +218,11 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        n_words = [len(c.split()) for c in documents]
+        documents = documents[0]
+        try:
+            n_words = [len(c.split()) for c in documents]
+        except:
+            print c
         n_chars = [len(c) for c in documents]
         max_word_len = [np.max([len(w) for w in c.split()]) for c in documents]
         mean_word_len = [np.mean([len(w) for w in c.split()]) for c in documents]
