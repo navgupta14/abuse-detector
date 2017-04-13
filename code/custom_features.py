@@ -5,6 +5,7 @@ import math
 import pandas as pd
 import string
 import enchant
+import re
 from nltk.corpus import words as dictwords
 
 '''
@@ -147,8 +148,45 @@ class Misspelling(BaseEstimator, TransformerMixin):
     def fit(self, documents, y=None):
         return self
 
+    def preprocess(self, documents):
+        new_comments = []
+        for comment in documents:
+            comment = comment.lower()
+            while True:
+                if comment.startswith('"'):
+                    comment = comment[1:]
+                else:
+                    break
+            while True:
+                if comment.endswith('"'):
+                    comment = comment[:-1]
+                else:
+                    break
+            # sanitizing the data.
+
+            #comment = comment.replace(",", " ")
+            #comment = comment.replace(".", " ")
+            #comment = comment.replace(";", " ")
+
+            comment = comment.replace("\\n", " ").replace("\\t", " ")
+            comment = comment.replace("\\xa0", " ").replace("\\xc2", " ")
+            # removing html tags
+            tags_expr = re.compile('<.*?>')
+            comment = re.sub(tags_expr, '', comment)
+
+            # TODO - here we pruned all the urls. Perhaps, we should count the occurences of urls in a comment and use that as a feature.
+            # removing urls
+            url_expr = re.compile('http\S+')
+            comment = re.sub(url_expr, '', comment)
+            comment = comment.replace("\\", "")
+            comment = comment.replace("\/", "")
+            # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.
+            new_comments.append(comment)
+        return new_comments
+
     def transform(self, documents):
         documents = documents[0]
+        documents = self.preprocess(documents)
         #Below is the nltk word list approach. May be slightly faster than PyEnchant
         #Currently we'll be sticking to PyEnchant
         # words = set(dictwords.words())
@@ -156,9 +194,14 @@ class Misspelling(BaseEstimator, TransformerMixin):
 
         #PyEnchant Approach:
         engdict = enchant.Dict("en_US")
-        count = lambda l1: sum([1 for x in l1.split() if engdict.check(x) == True])
-        misspellngs = [count(c) for c in documents]
-        return np.array([misspellngs]).T
+        count = lambda l1: sum([1 for x in l1 if engdict.check(x) == False])
+
+        misspellings = []
+        for c in documents:
+            temp_list = re.split(r'\s+|[,;.-]\s*', c)
+            temp_list = filter(None, temp_list)
+            misspellings.append(count(temp_list))
+        return np.array([misspellings]).T
 
 class UpperCaseLetters(BaseEstimator, TransformerMixin):
     def get_feature_names(self):

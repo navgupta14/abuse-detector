@@ -15,12 +15,17 @@ from sklearn.metrics import auc, roc_auc_score, roc_curve, precision_recall_curv
 from sklearn import svm
 import logging
 import time
+import scipy.sparse as sp
+
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 start_time = time.time()
 logging.info(" ----------- Start Detector ------------")
 train_data = pd.read_csv('../data/train_sentences.csv')
 test_data = pd.read_csv('../data/test_with_solutions.csv')
+
+f = open("results.log", "a")
+f.write("\n\n ---------------------------- BEGIN EXECUTION ---------------------------- ")
 
 train_y = np.array(train_data.Insult)
 train_time = np.array(train_data.Date)
@@ -77,36 +82,36 @@ combined_features = FeatureUnion([
     ])),
 ])
 '''
-features_list = [(misspelling, 1), (day_and_time, 4), (likely_abuse, 1), (n_caps, 2), (word_tfidf_1, 2000), (word_tfidf_2, 2000),(word_tfidf_3, 2000),(char_tfidf_1, 2000),\
-                 (char_tfidf_2, 2000), (char_tfidf_3, 2000), (badwords, 10)]
 
-#train_comments = preprocessing.fit_transform(train_comments)
-#test_comments = preprocessing.transform(test_comments)
+features_list = [(word_tfidf_1, 2000), (word_tfidf_2, 2000), (word_tfidf_3, 2000), (char_tfidf_2, 2000),\
+                 (char_tfidf_3, 2000), (char_tfidf_1, 2000), (n_caps, 2), (day_and_time, 4), (misspelling, 1)]
+
+
+preprocessed_train_comments = preprocessing.fit_transform((train_comments, train_time))
+preprocessed_test_comments = preprocessing.transform((test_comments, test_time))
+
 training_data_features_list = []
 test_data_features_list = []
 for feature in features_list:
     feat = feature[0]
+    f.write("\n" + str(feat))
     k_new = feature[1]
     if k_new > 1000:
-        print "foo"
-        feat.fit(train_comments)
-        train_x = feat.transform(train_comments)
-        test_x = feat.transform(test_comments)
+        feat.fit(preprocessed_train_comments)
+        train_x = feat.transform(preprocessed_train_comments)
+        test_x = feat.transform(preprocessed_test_comments)
         select_k = SelectKBest(score_func=chi2, k=k_new)
         train_xx = select_k.fit_transform(train_x, train_y)
         test_xx = select_k.transform(test_x)
     else:
-        print "bar"
         train_xx = feat.fit_transform((train_comments, train_time))
         test_xx = feat.transform((test_comments, test_time))
     training_data_features_list.append(train_xx)
     test_data_features_list.append(test_xx)
 
-import scipy.sparse as sp
+
 final_training_data = sp.hstack(training_data_features_list)
 final_test_data = sp.hstack(test_data_features_list)
-
-
 
 
 #fitting a svm
@@ -127,7 +132,7 @@ pipeline = Pipeline([
     ("classifier", eclf)
 ])
 '''
-#print sgd.get_params().keys()
+
 pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
        'select__k': [10000, 12000, 14000, 16000]}
 #pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
@@ -135,22 +140,25 @@ pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
 #      'select__k': [1000, 2000, 3000, 4000]}
 #grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
 grid = eclf
-#grid = RandomizedSearchCV(pipeline, param_distributions=pg, n_iter=10)
-#abc = np.array([train_comments])
-#xyz = np.array([train_y])
-#grid.fit(abc, xyz)
+
 #grid.fit((train_comments, train_time), train_y)
 grid.fit(final_training_data, train_y)
 #print grid.best_params_
 #print grid.best_score_
-print "Linear svm - grid: ", grid.score(final_test_data, test_y)
+score = grid.score(final_test_data, test_y)
+str = "Score = %s" % score
+f.write("\n" + str)
+print "Linear svm - grid: ", score
 predictions = grid.predict_proba(final_test_data)
 predict_ans = grid.predict(final_test_data)
 grid.classes_
 print grid.classes_
 predictions = predictions[:, 1]
 false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, predictions)
-print "Test data auc(roc curve) : ", auc(false_positive_rate, true_positive_rate)
+auc_roc = auc(false_positive_rate, true_positive_rate)
+str = "AUC_ROC = %s" % auc_roc
+f.write("\n" + str)
+print "Test data auc(roc curve) : ", auc_roc
 print "Test data roc auc : ", roc_auc_score(test_y, predictions)
 precision, recall, thresholds = precision_recall_curve(test_y, predictions)
 print "Test data auc(PR curve) : ", auc(recall, precision)
@@ -158,7 +166,8 @@ print "(PRF)macro : ", precision_recall_fscore_support(test_y, predict_ans, aver
 print "(PRF)micro : ", precision_recall_fscore_support(test_y, predict_ans, average='micro')
 print "(PRF)weighted : ", precision_recall_fscore_support(test_y, predict_ans, average='weighted')
 print "(PRF) : ", precision_recall_fscore_support(test_y, predict_ans)
-
+f.write("\n\n ---------------------------- END EXECUTION ---------------------------- \n\n")
+f.close()
 logging.info(" ----------- End Detector ------------")
 total_time = time.time() - start_time
 m, s = divmod(total_time, 60)
