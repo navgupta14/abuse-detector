@@ -1,10 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.svm import LinearSVC
-from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.feature_selection import SelectKBest, chi2
 from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters,\
     LikelyAbusePhrase, DayAndTime, CommentLength, AverageWordLength, Punctuations, Misspelling
@@ -13,10 +9,14 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.metrics import auc, roc_auc_score, roc_curve, precision_recall_curve, precision_recall_fscore_support
 from sklearn import svm
+from sklearn.model_selection import cross_val_score
+from sklearn.externals import joblib
 import logging
 import time
 import scipy.sparse as sp
 
+
+fileName = "classifier.joblib.pkl"
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 start_time = time.time()
@@ -125,6 +125,37 @@ eclf = VotingClassifier(estimators=[
     ('svm', svm), ('lr', lr)
 ], voting='soft', weights=[0.6, 0.4])
 
+
+
+df = pd.DataFrame(columns=('w1', 'w2', 'mean', 'std'))
+
+i = 0
+for w1 in []:
+    for w2 in []:
+
+            if len(set((w1,w2))) == 1: # skip if all weights are equal
+                continue
+
+            eclf = VotingClassifier(estimators=[
+                ('svm', svm), ('lr', lr)
+            ], voting='soft', weights=[w1, w2])
+            scores = cross_val_score(
+                                            estimator=eclf,
+                                            X=final_training_data,
+                                            y=train_y,
+                                            cv=3,
+                                            scoring='accuracy',
+                                            n_jobs=-1)
+
+            df.loc[i] = [w1, w2, scores.mean(), scores.std()]
+            i += 1
+
+print df.sort(columns=['mean', 'std'], ascending=False)
+
+
+
+
+
 '''
 pipeline = Pipeline([
     ("features", combined_features),
@@ -146,26 +177,31 @@ grid.fit(final_training_data, train_y)
 #print grid.best_params_
 #print grid.best_score_
 score = grid.score(final_test_data, test_y)
-str = "Score = %s" % score
-f.write("\n" + str)
+joblib.dump(grid, fileName)
+
+strss = "Score = %s" % score
+f.write("\n" + strss)
 print "Linear svm - grid: ", score
 predictions = grid.predict_proba(final_test_data)
 predict_ans = grid.predict(final_test_data)
 grid.classes_
 print grid.classes_
+f = open('results_analysis.txt', 'w')
 predictions = predictions[:, 1]
+results = zip(predict_ans, predictions)
+for item in results:
+    f.write('\n' + str(item))
 false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, predictions)
 auc_roc = auc(false_positive_rate, true_positive_rate)
-str = "AUC_ROC = %s" % auc_roc
-f.write("\n" + str)
+strss = "AUC_ROC = %s" % auc_roc
+f.write("\n" + strss)
 print "Test data auc(roc curve) : ", auc_roc
 print "Test data roc auc : ", roc_auc_score(test_y, predictions)
 precision, recall, thresholds = precision_recall_curve(test_y, predictions)
 print "Test data auc(PR curve) : ", auc(recall, precision)
 print "(PRF)macro : ", precision_recall_fscore_support(test_y, predict_ans, average='macro')
 print "(PRF)micro : ", precision_recall_fscore_support(test_y, predict_ans, average='micro')
-print "(PRF)weighted : ", precision_recall_fscore_support(test_y, predict_ans, average='weighted')
-print "(PRF) : ", precision_recall_fscore_support(test_y, predict_ans)
+print "(PRF) : ", precision_recall_fscore_support(test_y, predict_ans, labels=[0, 1])
 f.write("\n\n ---------------------------- END EXECUTION ---------------------------- \n\n")
 f.close()
 logging.info(" ----------- End Detector ------------")
