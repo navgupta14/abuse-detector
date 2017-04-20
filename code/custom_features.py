@@ -261,17 +261,21 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, documents):
-        documents = documents[0]
-        try:
-            n_words = [len(c.split()) for c in documents]
-        except:
-            print c
+        n_words = [len(c.split()) for c in documents]
         n_chars = [len(c) for c in documents]
         max_word_len = [np.max([len(w) for w in c.split()]) for c in documents]
         mean_word_len = [np.mean([len(w) for w in c.split()]) for c in documents]
 
         # number of google badwords:
-        n_bad = [np.sum([c.lower().count(w) for w in self.badwords]) for c in documents]
+        n_bad = []
+        for c in documents:
+            bad_words = 0
+            temp_list = re.split('\W+', c.lower())
+            for w in self.badwords:
+                for word in temp_list:
+                    if w == word:
+                        bad_words += 1
+            n_bad.append(bad_words)
 
         # number of xexp (**** kind of abuses)
         n_xexp = [c.count("xexp") for c in documents]
@@ -281,8 +285,8 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
 
         bad_ratio = np.array(n_bad) / np.array(n_words, dtype=np.float)
 
-        return np.array([n_words, n_chars, max_word_len, mean_word_len, exclamation,
-                         addressing, spaces, bad_ratio, n_bad, n_xexp]).T
+        return np.array([exclamation,
+                         addressing, n_bad, n_xexp]).T
 
 class Preprocessing(BaseEstimator, TransformerMixin):
 
@@ -311,19 +315,20 @@ class Preprocessing(BaseEstimator, TransformerMixin):
             url_expr = re.compile('http\S+')
             comment = re.sub(url_expr, '', comment)
             # expanding short forms
-            comment = comment.replace(" u ", " you ").replace(" em ", " them ").replace(" da ", " the "). \
-                replace(" yo ", " you ").replace(" ur ", " your ")
-            comment = comment.replace("won't", "will not").replace("can't", "can not").replace("don't", "do not"). \
-                replace("i'm", "i am").replace("im", "i am").replace("ain't", "is not").replace("ll", "will"). \
-                replace("'t", " not").replace("'ve", " have").replace("'s", " is").replace("'re", " are").replace("'d", " would")
 
-            comment = re.sub("ies( |$)", "y ", comment)
-            comment = re.sub("s( |$)", " ", comment)
-            comment = re.sub("ing( |$)", " ", comment)
-            comment = re.sub("ed( |$)", " ", comment)
+#            comment = comment.replace(" u ", " you ").replace(" em ", " them ").replace(" da ", " the "). \
+#                replace(" yo ", " you ").replace(" ur ", " your ")
+#            comment = comment.replace("won't", "will not").replace("can't", "can not").replace("don't", "do not"). \
+#                replace("i'm", "i am").replace("im", "i am").replace("ain't", "is not").replace("ll", "will"). \
+#                replace("'t", " not").replace("'ve", " have").replace("'s", " is").replace("'re", " are").replace("'d", " would")
+#
+#            comment = re.sub("ies( |$)", "y ", comment)
+#            comment = re.sub("s( |$)", " ", comment)
+#            comment = re.sub("ing( |$)", " ", comment)
+#            comment = re.sub("ed( |$)", " ", comment)
 
             # Generalizing custom abuses.
-            comment = re.sub(" [*$%&#@][*$%&#@]+", " xexp ", comment)
+            comment = re.sub("[*$%&#@][*$%&#@]+", "xexp", comment)
             comment = re.sub(" [0-9]+ ", " DD ", comment)
 
             # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.

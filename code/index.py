@@ -84,7 +84,7 @@ combined_features = FeatureUnion([
 '''
 
 features_list = [(word_tfidf_1, 2000), (word_tfidf_2, 2000), (word_tfidf_3, 2000), (char_tfidf_2, 2000),\
-                 (char_tfidf_3, 2000), (char_tfidf_1, 2000), (n_caps, 2), (day_and_time, 4), (misspelling, 1)]
+                 (char_tfidf_3, 2000), (char_tfidf_1, 2000), (n_caps, 2), (day_and_time, 4), (misspelling, 1), (badwords, 4)]
 
 
 preprocessed_train_comments = preprocessing.fit_transform((train_comments, train_time))
@@ -103,6 +103,10 @@ for feature in features_list:
         select_k = SelectKBest(score_func=chi2, k=k_new)
         train_xx = select_k.fit_transform(train_x, train_y)
         test_xx = select_k.transform(test_x)
+    elif feat == badwords:
+        feat.fit(preprocessed_train_comments)
+        train_xx = feat.transform(preprocessed_train_comments)
+        test_xx = feat.transform(preprocessed_test_comments)
     else:
         train_xx = feat.fit_transform((train_comments, train_time))
         test_xx = feat.transform((test_comments, test_time))
