@@ -1,29 +1,14 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
-import re
-import math
 import pandas as pd
 import string
 import enchant
 import re
-from nltk.corpus import words as dictwords
 
-'''
-class SampleExtractor(BaseEstimator, TransformerMixin):
-
-    def __init__(self, vars):
-        self.vars = vars
-
-    def fit(self, x, y=None):
-        return self
-
-    def transform(self, x, y=None):
-        return do_something() # actual feature extraction happens here
-'''
 class DayAndTime(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
-        return np.array(['month_of_year'], ['day_of_week'], ['hour_of_day'], ['weekday'], ['weeknight'], ['weekend_day'], ['weekend_night'])
+        return np.array(['weekday'], ['weeknight'], ['weekend_day'], ['weekend_night'])
 
     def fit(self, documents, y=None):
         return self
@@ -98,6 +83,7 @@ class DayAndTime(BaseEstimator, TransformerMixin):
                         weekday.append(0)
         return np.array([weekday, weeknight, weekend_day, weekend_night]).T
 
+
 class CommentLength(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
         return np.array(['n_comment_len'])
@@ -107,8 +93,9 @@ class CommentLength(BaseEstimator, TransformerMixin):
 
     def transform(self, documents):
         documents = documents[0]
-        n_words = [len(c) for c in documents]
-        return np.array([n_words]).T
+        n_len = [len(c) for c in documents]
+        return np.array([n_len]).T
+
 
 class AverageWordLength(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
@@ -128,6 +115,7 @@ class AverageWordLength(BaseEstimator, TransformerMixin):
             avg_word_len.append(wordlen/len(dwords))
         return np.array([avg_word_len]).T
 
+
 class Punctuations(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
         return np.array(['punctuations'])
@@ -140,6 +128,7 @@ class Punctuations(BaseEstimator, TransformerMixin):
         count = lambda l1, l2: sum([1 for x in l1 if x in l2])
         punctuations = [count(c, set(string.punctuation)) for c in documents]
         return np.array([punctuations]).T
+
 
 class Misspelling(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
@@ -162,25 +151,21 @@ class Misspelling(BaseEstimator, TransformerMixin):
                     comment = comment[:-1]
                 else:
                     break
+
             # sanitizing the data.
-
-            #comment = comment.replace(",", " ")
-            #comment = comment.replace(".", " ")
-            #comment = comment.replace(";", " ")
-
             comment = comment.replace("\\n", " ").replace("\\t", " ")
             comment = comment.replace("\\xa0", " ").replace("\\xc2", " ")
             # removing html tags
             tags_expr = re.compile('<.*?>')
             comment = re.sub(tags_expr, '', comment)
 
-            # TODO - here we pruned all the urls. Perhaps, we should count the occurences of urls in a comment and use that as a feature.
             # removing urls
             url_expr = re.compile('http\S+')
             comment = re.sub(url_expr, '', comment)
+
             comment = comment.replace("\\", "")
             comment = comment.replace("\/", "")
-            # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.
+
             new_comments.append(comment)
         return new_comments
 
@@ -203,7 +188,8 @@ class Misspelling(BaseEstimator, TransformerMixin):
             misspellings.append(count(temp_list))
         return np.array([misspellings]).T
 
-class UpperCaseLetters(BaseEstimator, TransformerMixin):
+
+class UpperCasedWords(BaseEstimator, TransformerMixin):
     def get_feature_names(self):
         return np.array(['n_caps'], ['n_caps_ratio'])
 
@@ -214,11 +200,9 @@ class UpperCaseLetters(BaseEstimator, TransformerMixin):
         documents = documents[0]
         n_words = [len(c.split()) for c in documents]
         n_caps = [np.sum([w.isupper() for w in comment.split()]) for comment in documents]
-        try:
-            n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
-        except ValueError:
-            print "Hello"
+        n_caps_ratio = np.array(n_caps) / np.array(n_words, dtype=np.float)
         return np.array([n_caps, n_caps_ratio]).T
+
 
 #This feature handles comments containing "you are a", "you're a", "you sound like"
 class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
@@ -246,6 +230,7 @@ class LikelyAbusePhrase(BaseEstimator, TransformerMixin):
             labuse += doc.count("u'r such a")
             likely_abuse.append(labuse)
         return np.array([likely_abuse]).T
+
 
 class BadWordCounter(BaseEstimator, TransformerMixin):
     def __init__(self):
@@ -288,6 +273,7 @@ class BadWordCounter(BaseEstimator, TransformerMixin):
         return np.array([exclamation,
                          addressing, n_bad, n_xexp]).T
 
+
 class Preprocessing(BaseEstimator, TransformerMixin):
 
     def get_feature_names(self):
@@ -329,47 +315,6 @@ class Preprocessing(BaseEstimator, TransformerMixin):
 
             # Generalizing custom abuses.
             comment = re.sub("[*$%&#@][*$%&#@]+", "xexp", comment)
-            comment = re.sub(" [0-9]+ ", " DD ", comment)
-
-            # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.
-            new_comments.append(comment)
-        return new_comments
-
-class Preprocessing_without_stemming(BaseEstimator, TransformerMixin):
-
-    def get_feature_names(self):
-        return np.array(['preprocessed_without_stemming'])
-
-    def fit(self, documents, y=None):
-        return self
-
-    def transform(self, comments):
-        comments = comments[0]
-        new_comments = []
-        cache = {}
-        for comment in comments:
-            comment = comment.lower()
-
-            # sanitizing the data.
-            comment = comment.replace("\\n", " ").replace("\\t", " ")
-            comment = comment.replace("\\xa0", " ").replace("\\xc2", " ")
-            # removing html tags
-            tags_expr = re.compile('<.*?>')
-            comment = re.sub(tags_expr, '', comment)
-
-            # TODO - here we pruned all the urls. Perhaps, we should count the occurences of urls in a comment and use that as a feature.
-            # removing urls
-            url_expr = re.compile('http\S+')
-            comment = re.sub(url_expr, '', comment)
-            # expanding short forms
-            comment = comment.replace(" u ", " you ").replace(" em ", " them ").replace(" da ", " the "). \
-                replace(" yo ", " you ").replace(" ur ", " your ")
-            comment = comment.replace("won't", "will not").replace("can't", "can not").replace("don't", "do not"). \
-                replace("i'm", "i am").replace("im", "i am").replace("ain't", "is not").replace("ll", "will"). \
-                replace("'t", " not").replace("'ve", " have").replace("'s", " is").replace("'re", " are").replace("'d", " would")
-
-            # Generalizing custom abuses.
-            comment = re.sub(" [*$%&#@][*$%&#@]+", " xexp ", comment)
             comment = re.sub(" [0-9]+ ", " DD ", comment)
 
             # TODO - Mapping different forms of abuse to their root forms (like f00l, fo0l to Fool). Perhaps this wont be required due to use of char n grams as features.

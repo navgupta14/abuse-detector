@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_selection import SelectKBest, chi2
-from custom_features import BadWordCounter, Preprocessing, Preprocessing_without_stemming, UpperCaseLetters,\
+from custom_features import BadWordCounter, Preprocessing, UpperCasedWords,\
     LikelyAbusePhrase, DayAndTime, CommentLength, AverageWordLength, Punctuations, Misspelling
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
@@ -16,7 +16,7 @@ import time
 import scipy.sparse as sp
 
 
-fileName = "classifier.joblib.pkl"
+model_fileName = "classifier.joblib.pkl"
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.INFO)
 start_time = time.time()
@@ -29,17 +29,22 @@ f.write("\n\n ---------------------------- BEGIN EXECUTION ---------------------
 
 train_y = np.array(train_data.Insult)
 train_time = np.array(train_data.Date)
-test_y = np.array(test_data.Insult)
 train_comments = np.array(train_data.Comment)
-#train_comments = preprocessing(train_comments)
+
+test_y = np.array(test_data.Insult)
 test_comments = np.array(test_data.Comment)
 test_time = np.array(test_data.Date)
-#test_comments = preprocessing(test_comments)
+
+
+preprocessing = Preprocessing()
+preprocessed_train_comments = preprocessing.fit_transform((train_comments, train_time))
+preprocessed_test_comments = preprocessing.transform((test_comments, test_time))
 
 # word n grams - count vectors
 #word_cv = CountVectorizer(ngram_range=(1, 3), analyzer='word')
 # char n grams - count vectors
 #char_cv = CountVectorizer(ngram_range=(3, 5), analyzer='char_wb')
+
 # word n grams - TfIdf
 word_tfidf_1 = TfidfVectorizer(ngram_range=(1, 1), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
 word_tfidf_2 = TfidfVectorizer(ngram_range=(2, 2), analyzer='word', sublinear_tf=True, max_df=0.5, stop_words='english')
@@ -48,10 +53,9 @@ word_tfidf_3 = TfidfVectorizer(ngram_range=(3, 3), analyzer='word', sublinear_tf
 char_tfidf_1 = TfidfVectorizer(ngram_range=(3, 3), analyzer='char_wb', sublinear_tf=True, stop_words='english')
 char_tfidf_2 = TfidfVectorizer(ngram_range=(4, 4), analyzer='char_wb', sublinear_tf=True, stop_words='english')
 char_tfidf_3 = TfidfVectorizer(ngram_range=(5, 5), analyzer='char_wb', sublinear_tf=True, stop_words='english')
-preprocessing = Preprocessing()
-preprocessing_without_stemming = Preprocessing_without_stemming()
+
 badwords = BadWordCounter()
-n_caps = UpperCaseLetters()
+n_caps = UpperCasedWords()
 likely_abuse = LikelyAbusePhrase()
 day_and_time = DayAndTime()
 comment_length = CommentLength()
@@ -59,43 +63,19 @@ avg_word_length = AverageWordLength()
 punctuations = Punctuations()
 misspelling = Misspelling()
 
-'''
-combined_features = FeatureUnion([
-    #('punctuations', punctuations),
-    #('average_word_length', avg_word_length),
-    #('comment_length', comment_length),
-    ('misspelling', misspelling),
-    ('time', day_and_time),
-    ('likely_abuse', likely_abuse),
-    ('n_caps', n_caps),
-    ('word_tfidf', Pipeline([
-        ('normalize', preprocessing),
-        ('word', word_tfidf)
-    ])),
-    ('char_tfidf', Pipeline([
-        ('normalize', preprocessing),
-        ('char', char_tfidf)
-    ])),
-    ('badwords', Pipeline([
-        ('normalize', preprocessing_without_stemming),
-        ('badwords', badwords)
-    ])),
-])
-'''
-
+# list of features to use, with numbers to use for feature selection.
+# feature = (feature_name, k), where k is the features to be selected.
 features_list = [(word_tfidf_1, 2000), (word_tfidf_2, 2000), (word_tfidf_3, 2000), (char_tfidf_2, 2000),\
                  (char_tfidf_3, 2000), (char_tfidf_1, 2000), (n_caps, 2), (day_and_time, 4), (misspelling, 1), (badwords, 4)]
 
-
-preprocessed_train_comments = preprocessing.fit_transform((train_comments, train_time))
-preprocessed_test_comments = preprocessing.transform((test_comments, test_time))
-
 training_data_features_list = []
 test_data_features_list = []
+
 for feature in features_list:
     feat = feature[0]
     f.write("\n" + str(feat))
     k_new = feature[1]
+    # do feature selection (if more than 1000 features formed originally).
     if k_new > 1000:
         feat.fit(preprocessed_train_comments)
         train_x = feat.transform(preprocessed_train_comments)
@@ -103,36 +83,38 @@ for feature in features_list:
         select_k = SelectKBest(score_func=chi2, k=k_new)
         train_xx = select_k.fit_transform(train_x, train_y)
         test_xx = select_k.transform(test_x)
+    # we need preprocessed data, but no feature selection for badwords
     elif feat == badwords:
         feat.fit(preprocessed_train_comments)
         train_xx = feat.transform(preprocessed_train_comments)
         test_xx = feat.transform(preprocessed_test_comments)
+    # no preprocessing, no feature selection.
     else:
         train_xx = feat.fit_transform((train_comments, train_time))
         test_xx = feat.transform((test_comments, test_time))
     training_data_features_list.append(train_xx)
     test_data_features_list.append(test_xx)
 
-
+# stacking selected features.
 final_training_data = sp.hstack(training_data_features_list)
 final_test_data = sp.hstack(test_data_features_list)
 
-
-#fitting a svm
+#Classifiers
 svm = svm.SVC(C=0.3,kernel='linear',probability=True, verbose=True)
 lr = LogisticRegression(random_state=1, verbose=True)
-rfc = RandomForestClassifier(random_state=1)
-gnb = GaussianNB()
-sgd = SGDClassifier(n_iter=15000)
+#rfc = RandomForestClassifier(random_state=1)
+#gnb = GaussianNB()
+#sgd = SGDClassifier(n_iter=15000)
 
+# Ensemble Classifier
 eclf = VotingClassifier(estimators=[
     ('svm', svm), ('lr', lr)
 ], voting='soft', weights=[0.6, 0.4])
 
-
-
+## Selecting best weights for VotingClassifier by Cross Validation.
+## Couldn't do a gridSearchCV for some reason.
+'''
 df = pd.DataFrame(columns=('w1', 'w2', 'mean', 'std'))
-
 i = 0
 for w1 in []:
     for w2 in []:
@@ -155,53 +137,32 @@ for w1 in []:
             i += 1
 
 print df.sort(columns=['mean', 'std'], ascending=False)
-
-
-
-
-
-'''
-pipeline = Pipeline([
-    ("features", combined_features),
-    ("select", SelectKBest(score_func=chi2, k=20000)),
-    ("classifier", eclf)
-])
 '''
 
-pg = {'classifier__svm__C': [0.1, 0.3], 'classifier__lr__C': [1.0, 3.0],\
-       'select__k': [10000, 12000, 14000, 16000]}
-#pg = {'classifier__svm__C': [0.1], 'classifier__lr__C': [1.0],\
-#      'classifier__rfc__n_estimators': [20, 30], 'classifier__sgd__alpha': [0.001, 0.002],\
-#      'select__k': [1000, 2000, 3000, 4000]}
-#grid = GridSearchCV(pipeline, param_grid=pg, cv=5, n_jobs=4)
-grid = eclf
+# Training
+eclf.fit(final_training_data, train_y)
+# Accuracy score
+accuracy_score = eclf.score(final_test_data, test_y)
+# Dumping trained model to a file.
+joblib.dump(eclf, model_fileName)
 
-#grid.fit((train_comments, train_time), train_y)
-grid.fit(final_training_data, train_y)
-#print grid.best_params_
-#print grid.best_score_
-score = grid.score(final_test_data, test_y)
-joblib.dump(grid, fileName)
+score_str = "Score = %s" % accuracy_score
+f.write("\n" + score_str)
 
-strss = "Score = %s" % score
-f.write("\n" + strss)
-print "Linear svm - grid: ", score
-predictions = grid.predict_proba(final_test_data)
-predict_ans = grid.predict(final_test_data)
-grid.classes_
-print grid.classes_
-f = open('results_analysis.txt', 'w')
-predictions = predictions[:, 1]
-results = zip(predict_ans, predictions)
-for item in results:
-    f.write('\n' + str(item))
-false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, predictions)
+print score_str
+# Prediction probabilities for both classes
+predictions = eclf.predict_proba(final_test_data)
+# Predictions(lables)
+predict_ans = eclf.predict(final_test_data)
+#print eclf.classes_
+insult_predictions = predictions[:, 1]
+false_positive_rate, true_positive_rate, thresholds = roc_curve(test_y, insult_predictions)
 auc_roc = auc(false_positive_rate, true_positive_rate)
-strss = "AUC_ROC = %s" % auc_roc
-f.write("\n" + strss)
+auc_str = "AUC_ROC = %s" % auc_roc
+f.write("\n" + auc_str)
 print "Test data auc(roc curve) : ", auc_roc
-print "Test data roc auc : ", roc_auc_score(test_y, predictions)
-precision, recall, thresholds = precision_recall_curve(test_y, predictions)
+#print "Test data roc auc : ", roc_auc_score(test_y, insult_predictions)
+precision, recall, thresholds = precision_recall_curve(test_y, insult_predictions)
 print "Test data auc(PR curve) : ", auc(recall, precision)
 print "(PRF)macro : ", precision_recall_fscore_support(test_y, predict_ans, average='macro')
 print "(PRF)micro : ", precision_recall_fscore_support(test_y, predict_ans, average='micro')
